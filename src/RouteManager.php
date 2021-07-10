@@ -3,6 +3,7 @@
 namespace Hotash\AutoRoute;
 
 use Illuminate\Container\Container;
+use Illuminate\Support\Str;
 
 class RouteManager
 {
@@ -10,6 +11,11 @@ class RouteManager
      * @var Container
      */
     protected $app;
+
+    /**
+     * @var string
+     */
+    protected $namespace = 'App\\Http\\Controllers';
 
     /**
      * AutoRoute constructor.
@@ -29,7 +35,23 @@ class RouteManager
      */
     public function generate($controller, array $options = []): void
     {
-        //
+        if (is_array($controller)) {
+            foreach ($controller as $item) {
+                $this->generate($item, $options);
+            }
+        }
+
+        if (!is_string($controller)) {
+            return;
+        }
+
+        $controllerHint = Str::beforeLast(Str::after($controller, $this->namespace), 'Controller');
+        $controllerPath = collect(explode('\\', $controllerHint))->map(function ($item) {
+            return Str::kebab($item);
+        })->toArray();
+
+        $controllerPath[] = Str::plural(array_pop($controllerPath));
+        $this->route(implode('/', $controllerPath), $controller, $options);
     }
 
     /**
