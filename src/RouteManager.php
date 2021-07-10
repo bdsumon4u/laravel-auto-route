@@ -20,6 +20,19 @@ class RouteManager
     protected $namespace = 'App\\Http\\Controllers';
 
     /**
+     * @var array|string[][]
+     */
+    protected $mapHttpMethods = [
+        'index' => ['GET', 'HEAD'],
+        'create' => ['GET', 'HEAD'],
+        'store' => ['POST'],
+        'show' => ['GET', 'HEAD'],
+        'edit' => ['GET', 'HEAD'],
+        'update' => ['PUT', 'PATCH'],
+        'destroy' => ['DELETE'],
+    ];
+
+    /**
      * AutoRoute constructor.
      *
      * @param Container $app
@@ -27,6 +40,8 @@ class RouteManager
     public function __construct(Container $app)
     {
         $this->app = $app;
+        $config = $app['config']['auto-route'];
+        $this->mapHttpMethods = array_merge($this->mapHttpMethods, $config['methods']);
     }
 
     /**
@@ -71,7 +86,7 @@ class RouteManager
         $options = array_merge(compact('prefix', 'as'), $options);
 
         foreach ($this->getRoutableMethods($controller, $options) as $method) {
-            dump($method);
+            [$httpMethods, $routeName] = $this->getHttpMethodsAndRouteName($method);
         }
     }
 
@@ -112,5 +127,35 @@ class RouteManager
             })
             ->filter()
             ->toArray();
+    }
+
+    /**
+     * Get HTTP methods and route name.
+     *
+     * @param ReflectionMethod $method
+     * @return array
+     */
+    private function getHttpMethodsAndRouteName(ReflectionMethod $method): array
+    {
+        $methodName = $method->name;
+        if ($methods = data_get($this->mapHttpMethods, $methodName)) {
+            return [$methods, trim($method->name, '_')];
+        }
+
+        $methods = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'];
+        foreach ($methods as $httpMethod) {
+            if (stripos($method->name, strtolower($httpMethod), 0) === 0) {
+                $methods = [$httpMethod];
+                break;
+            }
+        }
+
+        return [$methods, strtolower(preg_replace('%([a-z]|\d)([A-Z])%', '\1-\2', lcfirst(
+            preg_replace(
+                '/' . strtolower($httpMethod) . '_?/i',
+                '', trim($methodName, '_'),
+                1
+            )
+        )))];
     }
 }
