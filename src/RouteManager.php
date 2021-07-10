@@ -3,6 +3,7 @@
 namespace Hotash\AutoRoute;
 
 use Illuminate\Container\Container;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 use ReflectionClass;
 use ReflectionMethod;
@@ -33,6 +34,16 @@ class RouteManager
     ];
 
     /**
+     * @var string[]
+     */
+    protected $mapPatterns = [
+        'any' => '([^/]+)',
+        'int' => '(\d+)',
+        'float' => '[+-]?([0-9]*[.])?[0-9]+',
+        'bool' => '(true|false|1|0)',
+    ];
+
+    /**
      * AutoRoute constructor.
      *
      * @param Container $app
@@ -42,6 +53,7 @@ class RouteManager
         $this->app = $app;
         $config = $app['config']['auto-route'];
         $this->mapHttpMethods = array_merge($this->mapHttpMethods, $config['methods']);
+        $this->mapPatterns = array_merge($this->mapPatterns, $config['patterns']);
     }
 
     /**
@@ -82,11 +94,19 @@ class RouteManager
      */
     public function route(string $prefix, string $controller, array $options = []): void
     {
+        $patterns = $options['patterns'] ?? [];
         $as = str_replace('/', '.', trim($prefix, '/')) . '.';
         $options = array_merge(compact('prefix', 'as'), $options);
 
         foreach ($this->getRoutableMethods($controller, $options) as $method) {
             [$httpMethods, $routeName] = $this->getHttpMethodsAndRouteName($method);
+            [$endpoint, $patterns] = $this->getEndpointAndPatterns($method, $patterns);
+
+            if (!isset($this->mapHttpMethods[$routeName]) || in_array($method->name, ['create', 'edit'])) {
+                $endpoint .= "/{$routeName}";
+            }
+
+            dump($httpMethods, $endpoint);
         }
     }
 
@@ -157,5 +177,55 @@ class RouteManager
                 1
             )
         )))];
+    }
+
+    /**
+     * Get endpoint and route patterns.
+     *
+     * @param ReflectionMethod $method
+     * @param array $patterns
+     * @return array
+     */
+    private function getEndpointAndPatterns(ReflectionMethod $method, array $patterns = []): array
+    {
+        $routePatterns = $endpoints = [];
+        $patterns = array_merge($this->mapPatterns, $patterns);
+
+        foreach ($method->getParameters() as $param) {
+            $paramName = $param->getName();
+            $typeHint = $param->hasType()
+                ? $param->getType()->getName()
+                : null;
+
+            if (!$this->isNeededParameter($typeHint, $patterns)) {
+                continue;
+            }
+
+            $routePatterns[$paramName] = $patterns[$paramName] ??
+                ($this->mapPatterns[$typeHint] ?? $this->mapPatterns['any']);
+            $endpoints[] = $param->isOptional() ? "{{$paramName}?}" : "{{$paramName}}";
+        }
+
+        return [implode('/', $endpoints), $routePatterns];
+    }
+
+    /**
+     * Is the parameter needed for route pattern.
+     *
+     * @param $typeHint
+     * @param $patterns
+     * @return bool
+     */
+    private function isNeededParameter($typeHint, $patterns): bool
+    {
+        if (is_null($typeHint)) {
+            return true;
+        }
+
+        if (class_exists($typeHint)) {
+            return is_subclass_of($typeHint, Model::class);
+        }
+
+        return in_array($typeHint, ['int', 'float', 'string', 'bool']) || array_key_exists($typeHint, $patterns);
     }
 }
