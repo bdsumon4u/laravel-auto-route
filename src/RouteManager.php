@@ -106,7 +106,13 @@ class RouteManager
                 $endpoint .= "/{$routeName}";
             }
 
-            dump($httpMethods, $endpoint);
+            $this->app['router']->group($options,
+                function () use ($endpoint, $routeName, $method, $httpMethods, $patterns) {
+                    $this->app['router']->addRoute($httpMethods, $endpoint, [$method->class, $method->name])
+                        ->where($patterns)
+                        ->name($routeName);
+                }
+            );
         }
     }
 
