@@ -1,0 +1,36 @@
+{
+    "name": "hotash/laravel-auto-route",
+    "description": "Auto Route Generating (Auto-Discovery) Package for Laravel.",
+    "keywords": ["auto-route", "laravel", "route", "router", "route-generator"],
+    "type": "library",
+    "license": "MIT",
+    "homepage": "https://github.com/bdsumon4u/laravel-auto-route",
+    "authors": [
+        {
+            "name": "Sumon Ahmed",
+            "email": "bdsumon4u@gmail.com",
+            "homepage": "https://hotashplanet.com"
+        }
+    ],
+    "require": {
+        "php": "^7.2.5|^8.0",
+        "illuminate/support": "^7.0|^8.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Hotash\\AutoRoute\\": "src"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Hotash\\AutoRoute\\AutoRouteServiceProvider"
+            ],
+            "aliases": {
+                "AutoRoute": "Hotash\\AutoRoute\\Facades\\Auto"
+            }
+        }
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
+}
